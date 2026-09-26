@@ -17,7 +17,7 @@ PostgreSQL、MySQL、SQLite、MongoDB……用户用什么数据库就使用什�
 | `behaviorTrackerClient()` | 客户端插件 |
 | `captureVisitorContext()` | 前端埋点：首次访问生成 visitorId、解析 UTM、写 cookie、上报 `/api/track/visit` |
 | `trackVisit()` | 框架无关的上报 handler（标准 Request/Response），UPSERT 语义由注入的 `upsertVisitor` 实现 |
-| `recordConversion()` | 供 Stripe/Polar `onSubscriptionComplete` 回调：查 `userLead`、算 `daysToConvert`、产出转化事件行；读写通过 `findUserLead` / `insertConversionEvent` 注入 |
+| `recordConversion()` | 供 Stripe/Polar `onSubscriptionComplete` 回调：查 `userLead`、算 `daysToConvert`、产出转化事件行；读写通过 `findUserLead` / `insertConversionEvent` 注入；`dedupeKey` 幂等键透传（防 webhook 重试重复计数） |
 
 ## 数据库无关设计
 
@@ -111,7 +111,8 @@ stripe({
   subscription: { enabled: true, plans: [/* ... */] },
   onSubscriptionComplete: async ({ subscription, plan }) => {
     await recordConversion(
-      { userId: subscription.referenceId, plan: plan.name },
+      // dedupeKey：Stripe webhook 自动重试时按订阅 ID 去重（insertConversionEvent 实现应按它 upsert/加唯一约束）
+      { userId: subscription.referenceId, plan: plan.name, dedupeKey: subscription.id },
       {
         findUserLead: (userId) => /* 你的数据库查询归因记录 */,
         insertConversionEvent: (row) => /* 你的数据库写入转化事件 */,
@@ -141,6 +142,16 @@ WHERE last_seen_at < <now减30天>
 `<now减30天>` 按数据库替换：PostgreSQL `now() - interval '30 days'`、
 MySQL `NOW() - INTERVAL 30 DAY`、SQLite `datetime('now', '-30 days')`。
 
+## 安全与威胁模型
+
+- **归因字段是客户端自报数据**：`ba_lead_ctx` cookie、`/api/track/visit` 请求体、
+  `x-forwarded-for` 首段均可被伪造。数据仅用于内部分析（渠道效果、转化周期），
+  **不可用于 affiliate 分成、结算等以金钱结算的场景**。
+- **`/api/track/visit` 是匿名写端点**：请在宿主框架层配置 rate limit 与请求体大小限制。
+  本包已做字段限长（`visitorId` ≤ 64，`utmSource` 等可选字段 ≤ 2048：超长字段丢弃、
+  超长 visitorId 整体拒绝），但频率与总量治理属宿主职责。
+- **visitor 表会持续增长**：定期执行上面的「visitor 表清理」SQL。
+
 ## 开发
 
 ```bash
@@ -153,6 +164,7 @@ npm test            # vitest run（含真实 better-auth 实例的集成测试�
 
 - 插件数据访问走 better-auth adapter（可移植、可 mock），visitor 表回退查询通过
   `findVisitorById` 注入 —— 插件本体不绑定 ORM/数据库；
-- 归因/埋点是旁路逻辑：无数据可写时静默跳过，绝不阻断注册/登录；
+- 归因/埋点是旁路逻辑：无数据可写时静默跳过，落库异常经 safe-run 包裹记日志后吞掉，
+  绝不阻断注册/登录；
 - IP 解析优先级 `cf-connecting-ip` → `x-real-ip` → `x-forwarded-for` 首段；
   非 Cloudflare 部署的国家解析方案见 `docs/design.md` 第 8 节（MaxMind GeoLite2）。

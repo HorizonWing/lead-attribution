@@ -80,7 +80,36 @@ export const myPlugin = (options: MyPluginOptions = {}) =>
   SQLite "UNIQUE constraint" / Mongo `E11000`）按幂等成功处理，
   其余错误照常抛出（见 lead-attribution 的 `isUniqueViolationError`）。
 - 外部输入（cookie/请求体）的可选字段落库前必须归一化：
-  统一走 `normalizeLeadContext`（visitorId 非空 string 必查，可选字段仅保留非空 string）。
+  统一走 `normalizeLeadContext`，且**必须限长**——`visitorId` ≤ 64
+  （共享校验器 `isVisitorId`，超长整体拒绝），可选字段 ≤ 2048（超长归
+  `undefined`，记录本身保留）。限长封堵匿名上报接口的超长载荷与超长主键查询，
+  cookie 与 HTTP 请求体两个入口同一规则。
+- IP/国家**请求头**提取（`pickIpAddress`/`pickCountry`）同属可伪造输入，
+  同样过 `optionalString` 限长并过滤空串——否则伪造的超长 `x-forwarded-for`
+  首段可绕过 body 限长直达落库。
+- 支付回调类写入带幂等键：`ConversionInput.dedupeKey`（订阅/webhook 事件 ID）
+  透传到 `ConversionEventRow`，宿主 insert 实现按它 upsert 或唯一约束
+  （Stripe/Polar webhook 会自动重试，重复触发是常态而非异常）。
+
+## 旁路 hook 安全执行（safe-run 包裹）
+
+归因/埋点 after hook 的落库失败**不得**把已成功的注册/登录变成失败响应：
+
+```ts
+export async function runXxxSafely(ctx, options): Promise<void> {
+  try {
+    await handleXxx(ctx, options);
+  } catch (error) {
+    ctx.context.logger?.error("[plugin-id] xxx write failed", error);
+  }
+}
+```
+
+- handler 委托 safe-run 包装器，不直接调主逻辑；包装器不导出（内部实现），
+  主逻辑仍独立导出供单测。
+- 日志走 `ctx.context.logger`（better-auth 运行时注入），**不用 console**——
+  库代码不劫持宿主日志配置；logger 缺省时（单测构造）静默。
+- 唯一约束冲突在主逻辑内消化（见上节），safe-run 只兜连接抖动等其余异常。
 
 ## 客户端插件
 

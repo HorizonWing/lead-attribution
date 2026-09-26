@@ -98,7 +98,7 @@ CREATE TABLE user_lead (
   country TEXT,
   signup_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_user_lead_user_id ON user_lead(user_id);
+CREATE UNIQUE INDEX uniq_user_lead_user_id ON user_lead(user_id);
 CREATE INDEX idx_user_lead_utm_source ON user_lead(utm_source);
 ```
 
@@ -126,9 +126,11 @@ CREATE TABLE conversion_event (
   utm_source TEXT,
   country TEXT,
   days_to_convert INTEGER,
+  dedupe_key TEXT,                  -- webhook 重试幂等键（订阅/事件 ID）；PG 唯一索引默认允许多个 NULL
   converted_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_conversion_utm_source ON conversion_event(utm_source);
+CREATE UNIQUE INDEX uniq_conversion_dedupe_key ON conversion_event(dedupe_key);
 ```
 
 ## 4. 前端埋点实现
