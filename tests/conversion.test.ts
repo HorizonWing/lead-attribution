@@ -62,4 +62,15 @@ describe("recordConversion（数据库无关：纯注入实现）", () => {
       daysToConvert: null,
     });
   });
+
+  it("dedupeKey 透传到转化事件行（支付 webhook 重试幂等，V2）", async () => {
+    const deps = buildDeps(null);
+
+    await recordConversion(
+      { userId: "u1", plan: "pro", dedupeKey: "sub_123" },
+      { ...deps, now: Date.now },
+    );
+
+    expect(deps.insertConversionEvent.mock.calls[0]![0].dedupeKey).toBe("sub_123");
+  });
 });

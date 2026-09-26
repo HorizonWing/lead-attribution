@@ -81,9 +81,14 @@ export const conversionEvent = pgTable(
     utmSource: text("utm_source"),
     country: text("country"),
     daysToConvert: integer("days_to_convert"),
+    // webhook 重试幂等键（订阅/事件 ID）；NULL 行不受唯一约束影响（PG 默认 NULLS DISTINCT）
+    dedupeKey: text("dedupe_key"),
     convertedAt: timestamp("converted_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("idx_conversion_utm_source").on(t.utmSource)],
+  (t) => [
+    index("idx_conversion_utm_source").on(t.utmSource),
+    uniqueIndex("uniq_conversion_dedupe_key").on(t.dedupeKey),
+  ],
 );
 
 /**

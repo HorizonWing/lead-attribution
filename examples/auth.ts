@@ -54,7 +54,8 @@ export const auth = betterAuth({
       // 不要另建 webhook 路由，避免与插件内部处理产生竞态
       onSubscriptionComplete: async ({ subscription, plan }) => {
         await recordConversion(
-          { userId: subscription.referenceId, plan: plan.name },
+          // dedupeKey：Stripe webhook 自动重试时按订阅 ID 去重
+          { userId: subscription.referenceId, plan: plan.name, dedupeKey: subscription.id },
           {
             findUserLead: async (userId) => {
               const [row] = await db
@@ -69,7 +70,11 @@ export const auth = betterAuth({
               return row ?? null;
             },
             insertConversionEvent: async (row) => {
-              await db.insert(conversionEvent).values(row);
+              // 幂等：webhook 重试按 dedupe_key 唯一索引去重（见 schema.pg-drizzle.ts）
+              await db
+                .insert(conversionEvent)
+                .values(row)
+                .onConflictDoNothing({ target: conversionEvent.dedupeKey });
             },
           },
         );

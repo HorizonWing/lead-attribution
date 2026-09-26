@@ -11,6 +11,7 @@
 export interface UserLeadAttribution {
   utmSource: string | null;
   country: string | null;
+  /** 注册时间；原始 driver（node-pg 等）返回 string 时宿主需自行 new Date(...) 转换 */
   signupAt: Date;
 }
 
@@ -22,6 +23,11 @@ export interface ConversionEventRow {
   country: string | null;
   /** 注册到付费的天数（向下取整）；无归因记录时为 null */
   daysToConvert: number | null;
+  /**
+   * 幂等键（订阅 ID / webhook 事件 ID 等）：支付 webhook 会自动重试，
+   * 宿主的 insertConversionEvent 实现应按它做 upsert 或唯一约束，防转化重复计数。
+   */
+  dedupeKey?: string;
 }
 
 export interface ConversionDeps {
@@ -38,6 +44,8 @@ export interface ConversionInput {
   userId: string;
   /** 计划名，如 "pro" */
   plan: string;
+  /** 幂等键（如 subscription.id），透传到 ConversionEventRow.dedupeKey */
+  dedupeKey?: string;
 }
 
 export async function recordConversion(
@@ -56,5 +64,6 @@ export async function recordConversion(
     utmSource: lead?.utmSource ?? null,
     country: lead?.country ?? null,
     daysToConvert,
+    dedupeKey: input.dedupeKey,
   });
 }
