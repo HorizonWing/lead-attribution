@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { trackVisit, type UpsertVisitorInput } from "../src/routes/track-visit";
+import { MAX_FIELD_LENGTH, MAX_VISITOR_ID_LENGTH } from "../src/utils/lead-context";
 
 function postRequest(body: unknown, headers: Record<string, string> = {}): Request {
   return new Request("https://example.com/api/track/visit", {
@@ -114,5 +115,31 @@ describe("trackVisit", () => {
 
     expect(upsertVisitor.mock.calls[0]![0].ipAddress).toBe("1.1.1.1");
     expect(upsertVisitor.mock.calls[1]![0].ipAddress).toBe("2.2.2.2");
+  });
+
+  it("超长 visitorId（>64）：返回 400，不落库（V1）", async () => {
+    const upsertVisitor = vi.fn();
+    const response = await trackVisit(
+      postRequest({ visitorId: "v".repeat(MAX_VISITOR_ID_LENGTH + 1) }),
+      { upsertVisitor },
+    );
+
+    expect(response.status).toBe(400);
+    expect(upsertVisitor).not.toHaveBeenCalled();
+  });
+
+  it("超长 utmSource（>2048）：字段丢弃但访问记录保留（V1）", async () => {
+    const upsertVisitor = vi.fn().mockResolvedValue(undefined);
+    const response = await trackVisit(
+      postRequest({
+        visitorId: "v-6",
+        utmSource: "x".repeat(MAX_FIELD_LENGTH + 1),
+      }),
+      { upsertVisitor },
+    );
+
+    expect(response.status).toBe(204);
+    expect(upsertVisitor).toHaveBeenCalledTimes(1);
+    expect(upsertVisitor.mock.calls[0]![0].utmSource).toBeUndefined();
   });
 });

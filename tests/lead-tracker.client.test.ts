@@ -11,6 +11,7 @@ interface BrowserStubOptions {
   cookie?: string;
   search?: string;
   pathname?: string;
+  protocol?: string;
   referrer?: string;
   crypto?: unknown;
 }
@@ -20,13 +21,14 @@ function stubBrowser({
   cookie = "",
   search = "",
   pathname = "/lp",
+  protocol = "http:",
   referrer = "",
   crypto: cryptoStub = { randomUUID: () => "uuid-stub-0001" },
 }: BrowserStubOptions = {}) {
   const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
   const documentStub = { cookie, referrer };
   vi.stubGlobal("document", documentStub);
-  vi.stubGlobal("window", { location: { search, pathname } });
+  vi.stubGlobal("window", { location: { search, pathname, protocol } });
   vi.stubGlobal("crypto", cryptoStub);
   vi.stubGlobal("fetch", fetchMock);
   return { documentStub, fetchMock };
@@ -113,5 +115,15 @@ describe("captureVisitorContext", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     expect(() => captureVisitorContext()).not.toThrow();
+  });
+
+  it("HTTPS 站点自动附加 secure 属性，HTTP 本地开发不附加（V5）", () => {
+    const https = stubBrowser({ protocol: "https:" });
+    captureVisitorContext();
+    expect(https.documentStub.cookie).toContain("; secure");
+
+    const http = stubBrowser({ protocol: "http:" });
+    captureVisitorContext();
+    expect(http.documentStub.cookie).not.toContain("secure");
   });
 });

@@ -27,7 +27,10 @@ export function captureVisitorContext(options: CaptureVisitorContextOptions = {}
     landingPage: window.location.pathname,
   };
 
-  document.cookie = serializeLeadCookie(context);
+  // HTTPS 站点自动加 secure；HTTP 本地开发不加，避免 cookie 写入失败
+  document.cookie = serializeLeadCookie(context, {
+    secure: window.location.protocol === "https:",
+  });
 
   // 上报失败静默忽略：埋点是旁路逻辑，不能影响页面加载；
   // keepalive：落地页立即跳转（广告点击 → LP → 产品页）时上报不被浏览器取消

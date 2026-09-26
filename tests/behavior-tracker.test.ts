@@ -5,6 +5,7 @@ import {
   DEFAULT_EVENT_PATHS,
   handleBehaviorEvent,
   matchEventPath,
+  runBehaviorEventSafely,
   type BehaviorHookContext,
 } from "../src/plugins/behavior-tracker";
 
@@ -124,5 +125,31 @@ describe("matchEventPath", () => {
     expect(matchEventPath("/sign-in/email", eventPaths)).toBe("login");
     expect(matchEventPath("/sign-in/social", eventPaths)).toBe("other");
     expect(matchEventPath("/get-session", eventPaths)).toBeUndefined();
+  });
+});
+
+describe("runBehaviorEventSafely（V4 旁路防护）", () => {
+  it("落库异常被吞掉并经 logger 记录，登录响应不受影响", async () => {
+    const logger = { error: vi.fn() };
+    const ctx = buildContext("/sign-in/email");
+    (ctx.context.adapter.create as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error("connection refused"),
+    );
+    ctx.context.logger = logger;
+
+    await expect(runBehaviorEventSafely(ctx)).resolves.toBeUndefined();
+    expect(logger.error).toHaveBeenCalledWith(
+      "[behavior-tracker] event write failed",
+      expect.any(Error),
+    );
+  });
+
+  it("宿主未注入 logger：同样吞掉异常，不抛出", async () => {
+    const ctx = buildContext("/sign-in/email");
+    (ctx.context.adapter.create as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error("db down"),
+    );
+
+    await expect(runBehaviorEventSafely(ctx)).resolves.toBeUndefined();
   });
 });

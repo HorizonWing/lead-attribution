@@ -15,7 +15,7 @@ import type { BetterAuthPlugin } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 
 import { pickCountry, pickIpAddress } from "../utils/client-info";
-import { LEAD_COOKIE, parseLeadCookieValue } from "../utils/lead-context";
+import { LEAD_COOKIE, isVisitorId, parseLeadCookieValue } from "../utils/lead-context";
 
 /** visitor 表行中回退查询所需的最小字段（其余字段忽略） */
 export interface VisitorRow {
@@ -34,8 +34,6 @@ export interface LeadAttributionOptions {
    * 不传则跳过回退（纯 cookie 模式）。
    */
   findVisitorById?: (visitorId: string) => Promise<VisitorRow | null>;
-  /** 线索上下文 cookie 名，默认 "ba_lead_ctx" */
-  cookieName?: string;
 }
 
 /**
@@ -49,6 +47,8 @@ export interface AttributionHookContext {
   request?: { headers: Headers } | null;
   context: {
     newSession?: { user: { id: string } } | null;
+    /** better-auth 运行时自带的日志器；缺省时（单测构造）静默 */
+    logger?: { error(message: string, ...args: unknown[]): void };
     adapter: {
       findOne(args: {
         model: string;
@@ -89,9 +89,9 @@ export const leadAttribution = (options: LeadAttributionOptions = {}) =>
           matcher: (ctx) =>
             ctx.path !== undefined &&
             (ctx.path.startsWith("/sign-up") || ctx.path.startsWith("/callback")),
-          // 逻辑主体抽出为独立函数（见 tests/），handler 仅做薄委托
+          // 逻辑主体抽出为独立函数（见 tests/），handler 仅做薄委托（含旁路防护）
           handler: createAuthMiddleware(async (ctx) => {
-            await handleLeadAttribution(ctx as unknown as AttributionHookContext, options);
+            await runLeadAttributionSafely(ctx as unknown as AttributionHookContext, options);
           }),
         },
       ],
@@ -106,8 +106,7 @@ export async function handleLeadAttribution(
   const userId = ctx.context.newSession?.user.id;
   if (!userId) return;
 
-  const cookieName = options.cookieName ?? LEAD_COOKIE;
-  const fromCookie = parseLeadCookieValue(ctx.getCookie(cookieName));
+  const fromCookie = parseLeadCookieValue(ctx.getCookie(LEAD_COOKIE));
   if (fromCookie) {
     // cookie 命中：直接使用首次进站采集的来源
     await createUserLead(ctx, userId, fromCookie.visitorId, fromCookie);
@@ -115,8 +114,9 @@ export async function handleLeadAttribution(
   }
 
   // cookie 缺失（跨设备注册、隐私模式清了 cookie）：按 body.visitorId 回退查 visitor 表
-  const bodyVisitorId =
-    typeof ctx.body?.visitorId === "string" ? ctx.body.visitorId : undefined;
+  // isVisitorId 限长校验：超长/非法值不触发回退查询（与 cookie 入口同一规则）
+  const bodyVisitorIdRaw: unknown = ctx.body?.visitorId;
+  const bodyVisitorId = isVisitorId(bodyVisitorIdRaw) ? bodyVisitorIdRaw : undefined;
   const visitor =
     bodyVisitorId && options.findVisitorById
       ? await options.findVisitorById(bodyVisitorId)
@@ -125,6 +125,21 @@ export async function handleLeadAttribution(
     await createUserLead(ctx, userId, bodyVisitorId, visitor);
   }
   // 两者皆缺：无归因数据可写，静默跳过（归因是旁路逻辑，不能阻断注册）
+}
+
+/**
+ * 旁路执行：归因落库的任何异常（连接抖动、唯一约束之外的错误等）只经 logger 记录，
+ * 不让已成功的注册/回调变成失败响应。handler 委托本函数而非直接调主逻辑。
+ */
+export async function runLeadAttributionSafely(
+  ctx: AttributionHookContext,
+  options: LeadAttributionOptions = {},
+): Promise<void> {
+  try {
+    await handleLeadAttribution(ctx, options);
+  } catch (error) {
+    ctx.context.logger?.error("[lead-attribution] attribution write failed", error);
+  }
 }
 
 /** cookie 上下文与 visitor 行的并集形态（归因字段值均可空） */

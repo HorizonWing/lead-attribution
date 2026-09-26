@@ -3,9 +3,14 @@ import { describe, expect, it, vi } from "vitest";
 import {
   handleLeadAttribution,
   leadAttribution,
+  runLeadAttributionSafely,
   type AttributionHookContext,
 } from "../src/plugins/lead-attribution";
-import { LEAD_COOKIE, type LeadContext } from "../src/utils/lead-context";
+import {
+  LEAD_COOKIE,
+  MAX_VISITOR_ID_LENGTH,
+  type LeadContext,
+} from "../src/utils/lead-context";
 
 function encodeCookie(context: LeadContext): string {
   return encodeURIComponent(JSON.stringify(context));
@@ -199,5 +204,49 @@ describe("handleLeadAttribution", () => {
       references: { model: "user", field: "id" },
     });
     expect(plugin.id).toBe("lead-attribution");
+  });
+});
+
+describe("runLeadAttributionSafely（V4 旁路防护）", () => {
+  it("落库异常被吞掉并经 logger 记录，注册响应不受影响", async () => {
+    const logger = { error: vi.fn() };
+    const ctx = buildContext({
+      getCookie: () => encodeCookie({ visitorId: "v-123" }),
+    });
+    (ctx.context.adapter.findOne as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error("connection refused"),
+    );
+    ctx.context.logger = logger;
+
+    await expect(runLeadAttributionSafely(ctx)).resolves.toBeUndefined();
+    expect(logger.error).toHaveBeenCalledWith(
+      "[lead-attribution] attribution write failed",
+      expect.any(Error),
+    );
+  });
+
+  it("宿主未注入 logger：同样吞掉异常，不抛出", async () => {
+    const ctx = buildContext({
+      getCookie: () => encodeCookie({ visitorId: "v-123" }),
+    });
+    (ctx.context.adapter.findOne as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error("db down"),
+    );
+
+    await expect(runLeadAttributionSafely(ctx)).resolves.toBeUndefined();
+  });
+});
+
+describe("body.visitorId 限长（V7）", () => {
+  it("超长 visitorId 不触发回退查询，也不写入", async () => {
+    const findVisitorById = vi.fn();
+    const ctx = buildContext({
+      body: { visitorId: "v".repeat(MAX_VISITOR_ID_LENGTH + 1) },
+    });
+
+    await handleLeadAttribution(ctx, { findVisitorById });
+
+    expect(findVisitorById).not.toHaveBeenCalled();
+    expect(ctx.context.adapter.create).not.toHaveBeenCalled();
   });
 });

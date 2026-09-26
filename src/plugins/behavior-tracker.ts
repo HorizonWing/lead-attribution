@@ -28,6 +28,8 @@ export interface BehaviorHookContext {
   context: {
     newSession?: { user: { id: string } } | null;
     session?: { user: { id: string } } | null;
+    /** better-auth 运行时自带的日志器；缺省时（单测构造）静默 */
+    logger?: { error(message: string, ...args: unknown[]): void };
     adapter: {
       create(args: { model: string; data: Record<string, unknown> }): Promise<unknown>;
     };
@@ -57,9 +59,9 @@ export const behaviorTracker = (options: BehaviorTrackerOptions = {}) => {
         {
           matcher: (ctx) =>
             ctx.path !== undefined && matchEventPath(ctx.path, eventPaths) !== undefined,
-          // 逻辑主体抽出为独立函数（见 tests/），handler 仅做薄委托
+          // 逻辑主体抽出为独立函数（见 tests/），handler 仅做薄委托（含旁路防护）
           handler: createAuthMiddleware(async (ctx) => {
-            await handleBehaviorEvent(ctx as unknown as BehaviorHookContext, eventPaths);
+            await runBehaviorEventSafely(ctx as unknown as BehaviorHookContext, eventPaths);
           }),
         },
       ],
@@ -104,4 +106,19 @@ export async function handleBehaviorEvent(
       createdAt: new Date(),
     },
   });
+}
+
+/**
+ * 旁路执行：行为事件落库异常只经 logger 记录，
+ * 不让已成功的登录/注册变成失败响应。handler 委托本函数而非直接调主逻辑。
+ */
+export async function runBehaviorEventSafely(
+  ctx: BehaviorHookContext,
+  eventPaths: Record<string, string> = DEFAULT_EVENT_PATHS,
+): Promise<void> {
+  try {
+    await handleBehaviorEvent(ctx, eventPaths);
+  } catch (error) {
+    ctx.context.logger?.error("[behavior-tracker] event write failed", error);
+  }
 }

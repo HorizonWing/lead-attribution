@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   isLeadContext,
+  isVisitorId,
   LEAD_COOKIE,
   LEAD_COOKIE_MAX_AGE,
+  MAX_FIELD_LENGTH,
+  MAX_VISITOR_ID_LENGTH,
   normalizeLeadContext,
   optionalString,
   parseLeadCookieValue,
@@ -114,5 +117,64 @@ describe("optionalString", () => {
     expect(optionalString(123)).toBeUndefined();
     expect(optionalString({})).toBeUndefined();
     expect(optionalString(undefined)).toBeUndefined();
+  });
+});
+
+describe("isVisitorId", () => {
+  it("限长边界：64 字符通过，65 字符拒绝", () => {
+    expect(isVisitorId("v".repeat(MAX_VISITOR_ID_LENGTH))).toBe(true);
+    expect(isVisitorId("v".repeat(MAX_VISITOR_ID_LENGTH + 1))).toBe(false);
+  });
+
+  it("空串与非 string 拒绝", () => {
+    expect(isVisitorId("")).toBe(false);
+    expect(isVisitorId(123)).toBe(false);
+    expect(isVisitorId(undefined)).toBe(false);
+    expect(isVisitorId(null)).toBe(false);
+  });
+});
+
+describe("字段限长（V1：cookie 与请求体两个入口同一规则）", () => {
+  it("optionalString：2048 字符保留，2049 字符归为 undefined", () => {
+    expect(optionalString("x".repeat(MAX_FIELD_LENGTH))).toBe("x".repeat(MAX_FIELD_LENGTH));
+    expect(optionalString("x".repeat(MAX_FIELD_LENGTH + 1))).toBeUndefined();
+  });
+
+  it("normalizeLeadContext：visitorId 超长整体判非法（null）", () => {
+    expect(normalizeLeadContext({ visitorId: "v".repeat(MAX_VISITOR_ID_LENGTH + 1) })).toBeNull();
+  });
+
+  it("normalizeLeadContext：可选字段超长归 undefined，记录本身保留", () => {
+    expect(
+      normalizeLeadContext({
+        visitorId: "v-1",
+        utmSource: "x".repeat(MAX_FIELD_LENGTH + 1),
+        utmMedium: "ok",
+      }),
+    ).toEqual({
+      visitorId: "v-1",
+      utmSource: undefined,
+      utmMedium: "ok",
+      utmCampaign: undefined,
+      referrer: undefined,
+      landingPage: undefined,
+    });
+  });
+
+  it("parseLeadCookieValue 对超长 visitorId 的 cookie 同样返回 null", () => {
+    const forged = encodeURIComponent(
+      JSON.stringify({ visitorId: "v".repeat(MAX_VISITOR_ID_LENGTH + 1) }),
+    );
+    expect(parseLeadCookieValue(forged)).toBeNull();
+  });
+});
+
+describe("serializeLeadCookie secure（V5）", () => {
+  it("secure: true 追加 ; secure", () => {
+    expect(serializeLeadCookie(SAMPLE, { secure: true })).toContain("; secure");
+  });
+
+  it("默认（HTTP 本地开发）不含 secure", () => {
+    expect(serializeLeadCookie(SAMPLE)).not.toContain("secure");
   });
 });
