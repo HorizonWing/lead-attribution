@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/better-auth-plugin-guidelines.md", "reason": "核对限长归一化、safe-run 旁路包裹、dedupeKey 幂等是否符合插件契约"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "检查测试覆盖与质量基线"}
