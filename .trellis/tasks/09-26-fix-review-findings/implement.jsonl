@@ -1,0 +1,1 @@
+{"file": ".trellis/spec/backend/better-auth-plugin-guidelines.md", "reason": "插件结构契约：newSession 仅存在于 sign-up/callback 之后、createAuthMiddleware 不可直调、测试策略（独立导出逻辑函数 + memoryAdapter 集成测试）"}

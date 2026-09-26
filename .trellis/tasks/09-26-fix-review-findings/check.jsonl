@@ -1,0 +1,1 @@
+{"file": ".trellis/spec/backend/better-auth-plugin-guidelines.md", "reason": "验收对照：插件结构契约、matcher 判空、逻辑主体独立导出、memoryAdapter 集成测试兜底是否被本次改动保持"}
