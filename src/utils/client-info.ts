@@ -5,7 +5,7 @@
  * 请求头与 cookie/请求体一样是客户端可伪造输入：值统一过 optionalString
  * （非空 string 且 ≤ MAX_FIELD_LENGTH）——空串、超长值（如伪造的超大 XFF 段）归 undefined。
  */
-import { optionalString } from "./lead-context";
+import { optionalString } from "./lead-context.js";
 
 export function pickIpAddress(headers: Headers | null): string | undefined {
   if (!headers) return undefined;

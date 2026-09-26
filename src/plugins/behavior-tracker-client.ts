@@ -4,7 +4,7 @@
  */
 import type { BetterAuthClientPlugin } from "better-auth/client";
 
-import type { behaviorTracker } from "./behavior-tracker";
+import type { behaviorTracker } from "./behavior-tracker.js";
 
 export const behaviorTrackerClient = () => {
   return {

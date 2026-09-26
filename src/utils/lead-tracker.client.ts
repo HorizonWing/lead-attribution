@@ -5,7 +5,7 @@
  * 已采集过则跳过——保证「首次来源」不被后续渠道覆盖。
  * 浏览器专用模块：仅在客户端环境（import 到 .client 侧或 <script>）调用。
  */
-import { LEAD_COOKIE, serializeLeadCookie, type LeadContext } from "./lead-context";
+import { LEAD_COOKIE, serializeLeadCookie, type LeadContext } from "./lead-context.js";
 
 export interface CaptureVisitorContextOptions {
   /** 上报接口地址，默认 "/api/track/visit" */

@@ -6,8 +6,8 @@
  * UPSERT 语义由注入的 upsertVisitor 实现：首次插入全量来源，
  * 同一 visitorId 重复上报仅刷新 last_seen_at，首次来源始终保留。
  */
-import { pickCountry, pickIpAddress } from "../utils/client-info";
-import { normalizeLeadContext } from "../utils/lead-context";
+import { pickCountry, pickIpAddress } from "../utils/client-info.js";
+import { normalizeLeadContext } from "../utils/lead-context.js";
 
 /** visitor 表 upsert 所需的完整输入 */
 export interface UpsertVisitorInput {

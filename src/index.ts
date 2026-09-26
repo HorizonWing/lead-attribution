@@ -2,27 +2,27 @@ export {
   leadAttribution,
   type LeadAttributionOptions,
   type VisitorRow,
-} from "./plugins/lead-attribution";
-export { leadAttributionClient } from "./plugins/lead-attribution-client";
+} from "./plugins/lead-attribution.js";
+export { leadAttributionClient } from "./plugins/lead-attribution-client.js";
 export {
   behaviorTracker,
   DEFAULT_EVENT_PATHS,
   matchEventPath,
   type BehaviorTrackerOptions,
-} from "./plugins/behavior-tracker";
-export { behaviorTrackerClient } from "./plugins/behavior-tracker-client";
+} from "./plugins/behavior-tracker.js";
+export { behaviorTrackerClient } from "./plugins/behavior-tracker-client.js";
 export {
   recordConversion,
   type ConversionDeps,
   type ConversionEventRow,
   type ConversionInput,
   type UserLeadAttribution,
-} from "./conversion";
-export { trackVisit, type TrackVisitDeps, type UpsertVisitorInput } from "./routes/track-visit";
+} from "./conversion.js";
+export { trackVisit, type TrackVisitDeps, type UpsertVisitorInput } from "./routes/track-visit.js";
 export {
   captureVisitorContext,
   type CaptureVisitorContextOptions,
-} from "./utils/lead-tracker.client";
+} from "./utils/lead-tracker.client.js";
 export {
   isLeadContext,
   isVisitorId,
@@ -36,4 +36,4 @@ export {
   serializeLeadCookie,
   type LeadContext,
   type SerializeLeadCookieOptions,
-} from "./utils/lead-context";
+} from "./utils/lead-context.js";

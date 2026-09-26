@@ -1,17 +1,27 @@
 {
   "name": "better-auth-lead-attribution",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Better Auth 插件：访客线索归因（UTM/referrer/落地页）、行为事件追踪与支付转化记录",
   "type": "module",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
-    "src"
+    "dist"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "keywords": [
     "better-auth",
@@ -19,7 +29,16 @@
     "analytics",
     "conversion-tracking"
   ],
+  "author": "HorizonWing",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HorizonWing/lead-attribution.git"
+  },
+  "bugs": {
+    "url": "https://github.com/HorizonWing/lead-attribution/issues"
+  },
+  "homepage": "https://github.com/HorizonWing/lead-attribution#readme",
   "peerDependencies": {
     "better-auth": ">=1.6.0"
   },

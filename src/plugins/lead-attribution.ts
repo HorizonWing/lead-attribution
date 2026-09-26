@@ -14,8 +14,8 @@
 import type { BetterAuthPlugin } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
 
-import { pickCountry, pickIpAddress } from "../utils/client-info";
-import { LEAD_COOKIE, isVisitorId, parseLeadCookieValue } from "../utils/lead-context";
+import { pickCountry, pickIpAddress } from "../utils/client-info.js";
+import { LEAD_COOKIE, isVisitorId, parseLeadCookieValue } from "../utils/lead-context.js";
 
 /** visitor 表行中回退查询所需的最小字段（其余字段忽略） */
 export interface VisitorRow {

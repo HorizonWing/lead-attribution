@@ -4,7 +4,7 @@
  */
 import type { BetterAuthClientPlugin } from "better-auth/client";
 
-import type { leadAttribution } from "./lead-attribution";
+import type { leadAttribution } from "./lead-attribution.js";
 
 export const leadAttributionClient = () => {
   return {
