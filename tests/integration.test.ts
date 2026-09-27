@@ -16,8 +16,9 @@ function buildAuth() {
       session: [],
       account: [],
       verification: [],
-      userLead: [],
-      userEvent: [],
+      // memoryAdapter 按 modelName 指定的物理表名建表（与真实数据库一致）
+      user_lead: [],
+      user_event: [],
     }),
     emailAndPassword: { enabled: true },
     plugins: [leadAttribution(), behaviorTracker()],

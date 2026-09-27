@@ -29,6 +29,7 @@ export {
   LEAD_COOKIE,
   LEAD_COOKIE_MAX_AGE,
   MAX_FIELD_LENGTH,
+  MAX_TRACK_BODY_BYTES,
   MAX_VISITOR_ID_LENGTH,
   normalizeLeadContext,
   optionalString,

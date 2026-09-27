@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { trackVisit, type UpsertVisitorInput } from "../src/routes/track-visit";
-import { MAX_FIELD_LENGTH, MAX_VISITOR_ID_LENGTH } from "../src/utils/lead-context";
+import {
+  MAX_FIELD_LENGTH,
+  MAX_TRACK_BODY_BYTES,
+  MAX_VISITOR_ID_LENGTH,
+} from "../src/utils/lead-context";
 
 function postRequest(body: unknown, headers: Record<string, string> = {}): Request {
   return new Request("https://example.com/api/track/visit", {
@@ -141,5 +145,35 @@ describe("trackVisit", () => {
     expect(response.status).toBe(204);
     expect(upsertVisitor).toHaveBeenCalledTimes(1);
     expect(upsertVisitor.mock.calls[0]![0].utmSource).toBeUndefined();
+  });
+
+  it("请求体超 16KB 字节上限：返回 413，不做 JSON.parse 也不落库", async () => {
+    const upsertVisitor = vi.fn();
+    // 伪 content-length 头声明合法大小，验证按实际读入字节拒绝（头不可信）
+    const oversize = `{"visitorId":"v","pad":"${"x".repeat(MAX_TRACK_BODY_BYTES)}"}`;
+    const request = postRequest(oversize, { "content-length": "20" });
+    const response = await trackVisit(request, { upsertVisitor });
+
+    expect(response.status).toBe(413);
+    expect(upsertVisitor).not.toHaveBeenCalled();
+  });
+
+  it("请求体恰好在上限内：正常处理返回 204（边界）", async () => {
+    const upsertVisitor = vi.fn().mockResolvedValue(undefined);
+    // visitorId 64 + 六个 2048 字段的合法最坏情况 ≈ 12.4KB < 16KB
+    const response = await trackVisit(
+      postRequest({
+        visitorId: "v".repeat(MAX_VISITOR_ID_LENGTH),
+        utmSource: "s".repeat(MAX_FIELD_LENGTH),
+        utmMedium: "m".repeat(MAX_FIELD_LENGTH),
+        utmCampaign: "c".repeat(MAX_FIELD_LENGTH),
+        referrer: "r".repeat(MAX_FIELD_LENGTH),
+        landingPage: "/".repeat(MAX_FIELD_LENGTH),
+      }),
+      { upsertVisitor },
+    );
+
+    expect(response.status).toBe(204);
+    expect(upsertVisitor).toHaveBeenCalledTimes(1);
   });
 });

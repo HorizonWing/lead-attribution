@@ -186,6 +186,11 @@ CREATE UNIQUE INDEX uniq_conversion_dedupe_key ON conversion_event(dedupe_key);
 
 注意事项：
 
+- **drizzle schema 表名必须与库一致**：传给 `drizzleAdapter` 的 schema 中，`pgTable`
+  第一个参数是 SQL 物理表名，必须与库中实际表名完全一致（本插件为 snake_case：
+  `pgTable("user_lead")` / `pgTable("user_event")`）。手写 schema 写成驼峰
+  （`pgTable("userEvent")`）会在运行时报 `relation "userEvent" does not exist`
+  （PG 42P01）——以 `npx @better-auth/cli generate` 生成的定义为对齐基准。
 - **外键顺序**：`conversion_event.user_id` 引用 `"user"(id)`，先确保 better-auth
   核心表 `user` 已存在（首次接入时先跑步骤 1 的 CLI migrate 再执行本 DDL）。
 - **非 PostgreSQL 变体**：`TIMESTAMPTZ`→`TIMESTAMP(6)`（MySQL）、`gen_random_uuid()`→
@@ -242,8 +247,9 @@ MySQL `NOW() - INTERVAL 30 DAY`、SQLite `datetime('now', '-30 days')`。
 - **归因字段是客户端自报数据**：`ba_lead_ctx` cookie、`/api/track/visit` 请求体、
   `x-forwarded-for` 首段均可被伪造。数据仅用于内部分析（渠道效果、转化周期），
   **不可用于 affiliate 分成、结算等以金钱结算的场景**。
-- **`/api/track/visit` 是匿名写端点**：请在宿主框架层配置 rate limit 与请求体大小限制。
-  本包已做字段限长（`visitorId` ≤ 64，`utmSource` 等可选字段 ≤ 2048：超长字段丢弃、
+- **`/api/track/visit` 是匿名写端点**：请在宿主框架层配置 rate limit。
+  本包已做双重限长：请求体字节上限 16KB（`JSON.parse` 前预检，超限返回 413）与
+  字段限长（`visitorId` ≤ 64，`utmSource` 等可选字段 ≤ 2048：超长字段丢弃、
   超长 visitorId 整体拒绝），但频率与总量治理属宿主职责。
 - **visitor 表会持续增长**：定期执行上面的「visitor 表清理」SQL。
 
