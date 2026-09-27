@@ -15,6 +15,13 @@ export const MAX_VISITOR_ID_LENGTH = 64;
 /** 可选归因字段上限：cookie 路径受浏览器 ~4KB 约束，此上限封堵 HTTP 直报的超长载荷 */
 export const MAX_FIELD_LENGTH = 2048;
 
+/**
+ * /api/track/visit 请求体字节上限（UTF-8）：JSON.parse 前预检。
+ * 合法最坏情况 ≈ 12.4KB（visitorId 64 + 六个 2048 字段 + JSON 结构开销），16KB 留余量；
+ * Content-Length 头可伪造不可信，必须读入后按实际字节拒绝，封堵解析阶段的内存耗尽。
+ */
+export const MAX_TRACK_BODY_BYTES = 16 * 1024;
+
 /** 访客首次进站时采集的来源上下文 */
 export interface LeadContext {
   visitorId: string;

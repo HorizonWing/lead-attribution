@@ -7,7 +7,7 @@
  * 同一 visitorId 重复上报仅刷新 last_seen_at，首次来源始终保留。
  */
 import { pickCountry, pickIpAddress } from "../utils/client-info.js";
-import { normalizeLeadContext } from "../utils/lead-context.js";
+import { MAX_TRACK_BODY_BYTES, normalizeLeadContext } from "../utils/lead-context.js";
 
 /** visitor 表 upsert 所需的完整输入 */
 export interface UpsertVisitorInput {
@@ -32,13 +32,25 @@ export interface TrackVisitDeps {
 
 /**
  * POST /api/track/visit 处理器。
- * 返回 204（成功）、400（请求体非法）或 500（落库失败）；
+ * 返回 204（成功）、400（请求体非法）、413（请求体超限）或 500（落库失败）；
  * 归因采集失败不应影响页面，前端已 catch 忽略。
  */
 export async function trackVisit(request: Request, deps: TrackVisitDeps): Promise<Response> {
+  // 字节预检在 JSON.parse 之前：Content-Length 头可伪造，按实际读入字节拒绝
+  // （限长常量只约束解析后的字段，防不住解析阶段本身的内存/CPU 消耗）
+  let raw: string;
+  try {
+    raw = await request.text();
+  } catch {
+    return Response.json({ error: "failed to read body" }, { status: 400 });
+  }
+  if (new TextEncoder().encode(raw).byteLength > MAX_TRACK_BODY_BYTES) {
+    return Response.json({ error: "body too large" }, { status: 413 });
+  }
+
   let body: unknown;
   try {
-    body = await request.json();
+    body = JSON.parse(raw);
   } catch {
     return Response.json({ error: "invalid JSON body" }, { status: 400 });
   }

@@ -1,6 +1,6 @@
 {
   "name": "better-auth-lead-attribution",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "description": "Better Auth 插件：访客线索归因（UTM/referrer/落地页）、行为事件追踪与支付转化记录",
   "type": "module",
   "sideEffects": false,

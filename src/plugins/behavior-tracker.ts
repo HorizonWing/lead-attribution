@@ -43,6 +43,8 @@ export const behaviorTracker = (options: BehaviorTrackerOptions = {}) => {
     id: "behavior-tracker",
     schema: {
       userEvent: {
+        // 物理表名 snake_case（同 lead-attribution 的 userLead 说明）
+        modelName: "user_event",
         fields: {
           userId: {
             type: "string",

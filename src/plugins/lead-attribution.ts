@@ -64,6 +64,10 @@ export const leadAttribution = (options: LeadAttributionOptions = {}) =>
     id: "lead-attribution",
     schema: {
       userLead: {
+        // 物理表名显式声明为 snake_case：核心适配器（pg Pool 等）默认拿模型 key
+        // 当表名（"userLead"），与 CLI generate / 宿主手写 schema 的 user_lead 不一致，
+        // 运行时报 relation "userLead" does not exist（42P01）
+        modelName: "user_lead",
         fields: {
           userId: {
             type: "string",
